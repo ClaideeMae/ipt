@@ -1,21 +1,50 @@
-// controllers/userController.js
-
 const connection = require("../config/mysql");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken")
 
-// Create a new user
+
 const createUser = async (req, res) => {
   try {
-    const { username, email } = req.body;
-    const newUser = [username, email]; // Pass parameters as an array
+    const { username, email, password } = req.body;
+    const hashedpassword = await bcrypt.hash(password, 10);
+    const newUser = [username, email, hashedpassword]; 
 
-    await connection.execute("INSERT INTO users (username, email) VALUES (?, ?)", newUser);
+
+
+    await connection.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", newUser);
     console.log("Added user");
     res.status(201).json({ message: "User added successfully" });
   } catch (err) {
     console.error("Error adding user", err);
     res.status(500).json({ error: "Error adding user" });
   }
-};;
+};
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const [user] = await connection.execute("SELECT * FROM users WHERE email = ?", [email]);
+
+    if (!user || user.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user[0].password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // User is authenticated, generate a JWT
+    const token = jwt.sign({ userId: user[0].id, email: user[0].email }, "123", { expiresIn: "1h" });
+
+    res.status(200).json({ token });
+  } catch (err) {
+    console.error("Error during login", err);
+    res.status(500).json({ error: "Error during login" });
+  }
+};
 
 // Get all users
 const getUser = async (req, res) => {
@@ -34,15 +63,13 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const updatedUser = req.body;
 
-    // Extract the properties from the updatedUser object
     const { username, email } = updatedUser;
 
-    // Ensure that at least one property is provided for update
     if (!username && !email) {
       return res.status(400).json({ error: "Provide at least one property for update (username or email)." });
     }
 
-    // Build the SQL query dynamically based on the provided properties
+   
     let updateQuery = "UPDATE users SET";
     const updateParams = [];
 
@@ -55,12 +82,10 @@ const updateUser = async (req, res) => {
       updateQuery += " email = ?,";
       updateParams.push(email);
     }
-
-    // Remove the trailing comma and add the WHERE clause
+   
     updateQuery = updateQuery.slice(0, -1) + " WHERE id = ?";
     updateParams.push(id);
 
-    // Execute the query
     await connection.execute(updateQuery, updateParams);
 
     console.log("Updated user");
@@ -71,7 +96,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-// Delete user by ID
 const deleteUser = async (req, res) => {
   const { id } = req.params;
 
@@ -90,4 +114,5 @@ module.exports = {
   getUser,
   updateUser,
   deleteUser,
+  login
 };

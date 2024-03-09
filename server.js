@@ -1,11 +1,15 @@
-const express = require("express");
+const express = require("express")
 const app = express();
-const port = 5000;
+const PORT = 5000;
+const bodyParser = require("body-parser");
 
-app.use(express.json())
+app.use(bodyParser.json());
+app.use(express.json());
 
-app.use("/api/user", require("./routes/userRoutes"))
 
-app.listen(port, (req, res) => {
-    console.log(`http://localhost:${port}`)
+app.use("/api/user", require("./routes/userRoutes"));
+
+
+app.listen(PORT, () => {
+  console.log(`http://localhost:${PORT}`)
 })
